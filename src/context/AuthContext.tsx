@@ -3,7 +3,6 @@ import { User, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db, signInWithGoogle, logoutFirebase } from '../lib/firebase';
 import { UserProfile, UserRole } from '../types';
-import { INITIAL_USERS } from '../lib/seedData';
 
 interface AuthContextType {
   user: User | null;
@@ -14,7 +13,6 @@ interface AuthContextType {
   clearAuthError: () => void;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
-  setDemoUser: (userProfile: UserProfile) => void;
   updateProfileData: (updates: Partial<UserProfile>) => Promise<void>;
   isVerifiedStudent: boolean;
   isBlocked: boolean;
@@ -24,10 +22,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(() => {
-    // Default to the student Alex Chen for immediate testability
-    return INITIAL_USERS[0];
-  });
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -81,6 +76,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }, (err) => {
           console.warn('Notice listening to current profile:', err.message);
         });
+      } else {
+        setProfile(null);
+        if (profileUnsub) {
+          profileUnsub();
+          profileUnsub = null;
+        }
       }
       setLoading(false);
     });
@@ -124,12 +125,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     await logoutFirebase();
-    // Default back to demo student
-    setProfile(INITIAL_USERS[0]);
-  };
-
-  const setDemoUser = (demoProfile: UserProfile) => {
-    setProfile(demoProfile);
+    setUser(null);
+    setProfile(null);
   };
 
   const clearAuthError = () => {
@@ -158,7 +155,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearAuthError,
         loginWithGoogle,
         logout,
-        setDemoUser,
         updateProfileData,
         isVerifiedStudent: !!profile?.verifiedStudent,
         isBlocked: !!profile?.isBlocked

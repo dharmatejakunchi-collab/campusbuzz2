@@ -27,7 +27,6 @@ import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeSelectorModal } from './ThemeSelectorModal';
-import { INITIAL_USERS } from '../../lib/seedData';
 import { NavigationTab, UserProfile } from '../../types';
 
 interface HeaderProps {
@@ -45,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCreatePost,
   onOpenProfile
 }) => {
-  const { user, profile, role, loginWithGoogle, logout, setDemoUser } = useAuth();
+  const { user, profile, role, loginWithGoogle, logout } = useAuth();
   const { currentTheme } = useTheme();
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
@@ -334,43 +333,7 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                     </div>
 
-                    {/* Demo Role Switcher section */}
-                    <div className="space-y-1 mb-2">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 py-1 flex items-center justify-between">
-                        <span>Switch Demo Persona</span>
-                        <Zap className="w-3 h-3 text-amber-500" />
-                      </div>
-                      {INITIAL_USERS.map((u) => {
-                        const isSelected = profile?.uid === u.uid;
-                        return (
-                          <button
-                            key={u.uid}
-                            onClick={() => {
-                              setDemoUser(u);
-                              setShowRoleMenu(false);
-                            }}
-                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all ${
-                              isSelected
-                                ? 'bg-orange-50 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 font-bold border border-orange-200 dark:border-orange-900/60'
-                                : 'hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300'
-                            }`}
-                          >
-                            <div className="flex items-center space-x-2">
-                              <img src={u.photoURL} alt={u.displayName} className="w-5.5 h-5.5 rounded-lg object-cover" />
-                              <span className="truncate max-w-[125px]">{u.displayName}</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 uppercase font-bold">
-                                {u.role}
-                              </span>
-                              {isSelected && <Check className="w-3 h-3 text-orange-500" />}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col space-y-1">
+                    <div className="pt-1 flex flex-col space-y-1">
                       {role === 'admin' && (
                         <button
                           onClick={() => {

@@ -21,14 +21,13 @@ import { ClubAnnouncement } from '../../types';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, arrayUnion, arrayRemove, increment } from 'firebase/firestore';
 import { CreateAnnouncementModal } from './CreateAnnouncementModal';
-import { INITIAL_USERS } from '../../lib/seedData';
 
 interface ClubSectionProps {
   onNavigateToCalendar?: (eventId?: string) => void;
 }
 
 export const ClubSection: React.FC<ClubSectionProps> = ({ onNavigateToCalendar }) => {
-  const { profile, role, setDemoUser } = useAuth();
+  const { profile, role } = useAuth();
   const [announcements, setAnnouncements] = useState<ClubAnnouncement[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -118,24 +117,11 @@ export const ClubSection: React.FC<ClubSectionProps> = ({ onNavigateToCalendar }
                 <span>Publish Official Notice</span>
               </button>
             ) : (
-              <div className="flex flex-wrap items-center gap-2 bg-white/80 border border-purple-200 p-2.5 rounded-2xl text-xs shadow-xs">
+              <div className="flex flex-wrap items-center gap-2 bg-white/80 border border-purple-200 px-3 py-2 rounded-2xl text-xs shadow-xs">
                 <span className="text-purple-900 font-semibold flex items-center">
-                  <Lock className="w-3.5 h-3.5 mr-1 text-purple-600" />
-                  Posting restricted to Club / Admin roles.
+                  <Lock className="w-3.5 h-3.5 mr-1.5 text-purple-600" />
+                  Official notice broadcasting is reserved for verified Club Reps, Committees & Campus Admins.
                 </span>
-                <span className="text-slate-500">• Try demo switch:</span>
-                <button
-                  onClick={() => setDemoUser(INITIAL_USERS[2])} // Robotics Club
-                  className="px-2.5 py-1 bg-purple-500 hover:bg-purple-600 text-white font-bold rounded-lg text-[11px]"
-                >
-                  Robotics Club Lead
-                </button>
-                <button
-                  onClick={() => setDemoUser(INITIAL_USERS[4])} // Admin Dean
-                  className="px-2.5 py-1 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-lg text-[11px]"
-                >
-                  Campus Admin
-                </button>
               </div>
             )}
           </div>

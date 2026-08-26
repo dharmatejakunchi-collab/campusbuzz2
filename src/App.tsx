@@ -18,9 +18,11 @@ import { CoordinationRoomModal } from './components/chat/CoordinationRoomModal';
 import { LostFoundContactModal } from './components/posts/LostFoundContactModal';
 import { EditProfileModal } from './components/common/EditProfileModal';
 import { AuthErrorModal } from './components/common/AuthErrorModal';
+import { LoginScreen } from './components/auth/LoginScreen';
 import { useBackgroundExpiryWorker } from './hooks/usePostExpiry';
 import { seedDatabaseIfEmpty } from './lib/seedData';
 import { Post, NavigationTab } from './types';
+import { Flame } from 'lucide-react';
 
 // Tab animation variants
 const tabVariants = {
@@ -50,7 +52,7 @@ const tabVariants = {
 };
 
 function MainApp() {
-  const { profile } = useAuth();
+  const { user, profile, loading } = useAuth();
   const { currentTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<NavigationTab>('feed');
   
@@ -68,6 +70,33 @@ function MainApp() {
   useEffect(() => {
     seedDatabaseIfEmpty().catch(console.error);
   }, []);
+
+  // When auth state is loading
+  if (loading) {
+    return (
+      <div className={`min-h-screen ${currentTheme.bgCanvas} flex flex-col items-center justify-center`}>
+        <div className="flex flex-col items-center space-y-4">
+          <div className={`w-14 h-14 rounded-3xl bg-gradient-to-tr ${currentTheme.gradient} flex items-center justify-center shadow-lg shadow-purple-200 text-white animate-bounce`}>
+            <Flame className="w-8 h-8" />
+          </div>
+          <div className="flex items-center space-x-2 text-sm font-bold text-slate-600">
+            <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+            <span>Connecting to Campus Buzz...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // When user is not authenticated, show mandatory Login Wall
+  if (!user || !profile) {
+    return (
+      <>
+        <LoginScreen />
+        <AuthErrorModal />
+      </>
+    );
+  }
 
   const handleOpenRoom = (post: Post) => {
     setActiveRoomPost(post);
