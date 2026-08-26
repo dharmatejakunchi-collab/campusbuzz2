@@ -1,0 +1,45 @@
+{
+  "entities": {
+    "posts": {
+      "title": "Campus Buzz Posts",
+      "description": "Feed coordination posts with mandatory hashtags and expiration timers",
+      "fields": {
+        "title": { "type": "string", "description": "Post title" },
+        "description": { "type": "string", "description": "Detailed body" },
+        "imageUrl": { "type": "string", "description": "Media image url" },
+        "hashtags": { "type": "array", "description": "Mandatory hashtags list" },
+        "primaryHashtag": { "type": "string", "description": "Primary tag determining tap action (foodsplit, cabsplit, resell, lost, found)" },
+        "authorId": { "type": "string", "description": "User UID of creator" },
+        "authorName": { "type": "string", "description": "Author display name" },
+        "expiresAt": { "type": "number", "description": "Timestamp ms when post expires (foodsplit/cabsplit)" },
+        "durationMinutes": { "type": "number", "description": "Configured timer duration" },
+        "isClosed": { "type": "boolean", "description": "Whether room/post is completed" },
+        "isExpired": { "type": "boolean", "description": "Flag indicating expiry" }
+      }
+    },
+    "rooms": {
+      "title": "Coordination Chat Rooms",
+      "description": "Group chat rooms created per post for live coordination"
+    },
+    "club_announcements": {
+      "title": "Club & Committee Announcements",
+      "description": "Official club and admin announcements with form embeds and calendar links"
+    },
+    "events": {
+      "title": "Campus Events Calendar",
+      "description": "Campus-wide calendar events with RSVP support"
+    },
+    "event_requests": {
+      "title": "Student Event Requests",
+      "description": "Requests from students for admins to schedule events"
+    },
+    "complaints": {
+      "title": "Campus Community Complaints",
+      "description": "Anonymous public complaints with private admin moderation"
+    },
+    "system_config": {
+      "title": "System Configuration & Broadcasts",
+      "description": "Campus-wide alert broadcasts and system settings"
+    }
+  }
+}

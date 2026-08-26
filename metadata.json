@@ -1,0 +1,6 @@
+{
+  "name": "Campus Buzz",
+  "description": "Campus coordination and community platform featuring hashtag-driven feeds (#foodsplit, #cabsplit, #resell, #lost, #found), live group coordination chats, club/committee announcements, campus event calendar with RSVP, and anonymous complaints moderation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
