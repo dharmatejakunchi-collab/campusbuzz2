@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Flame, ShieldCheck, Sparkles, Building2, EyeOff, Clock, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Flame, ShieldCheck, Sparkles, Building2, EyeOff, Clock, ArrowRight, CheckCircle2, GraduationCap, Lock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -27,14 +27,14 @@ export const LoginScreen: React.FC = () => {
               Campus<span className={currentTheme.textAccent}>Buzz</span>
             </span>
             <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
-              Student Platform
+              NIT Raipur
             </span>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 text-xs font-bold text-slate-500">
-          <ShieldCheck className="w-4 h-4 text-emerald-500" />
-          <span>Verified University Accounts</span>
+        <div className="flex items-center space-x-2 text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200/80 px-3 py-1.5 rounded-full">
+          <GraduationCap className="w-4 h-4 text-purple-600" />
+          <span>NITRR Portal</span>
         </div>
       </header>
 
@@ -53,17 +53,21 @@ export const LoginScreen: React.FC = () => {
             </div>
 
             <div className="space-y-1.5">
+              <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-purple-100/80 border border-purple-200 text-purple-800 text-xs font-bold mb-1">
+                <GraduationCap className="w-3.5 h-3.5" />
+                <span>National Institute of Technology Raipur</span>
+              </div>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-                Sign in to Campus Buzz
+                Sign in with Institute Email
               </h1>
               <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-                Your university hub for live student intent coordination, official club broadcasts, campus event calendars, and anonymous facility tracking.
+                Campus Buzz is restricted to verified NIT Raipur students and faculty. Please sign in with your official <span className="font-semibold text-purple-700 font-mono">.nitrr.ac.in</span> Google account.
               </p>
             </div>
           </div>
 
           {/* Feature Highlights Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-1">
             <div className="flex items-start space-x-3 p-3.5 rounded-2xl bg-purple-50/60 border border-purple-100/80">
               <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center shrink-0 font-bold text-xs">
                 🍕
@@ -80,7 +84,7 @@ export const LoginScreen: React.FC = () => {
               </div>
               <div className="text-xs">
                 <div className="font-bold text-slate-800">Official Club Hub</div>
-                <div className="text-slate-500 text-[11px] leading-tight">Verified notices & forms</div>
+                <div className="text-slate-500 text-[11px] leading-tight">Verified notices & recruitment</div>
               </div>
             </div>
 
@@ -105,8 +109,24 @@ export const LoginScreen: React.FC = () => {
             </div>
           </div>
 
+          {/* Domain Requirement Callout */}
+          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200/80 flex items-center justify-between text-xs">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-7 h-7 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                @
+              </div>
+              <div>
+                <span className="font-bold text-slate-800">Authorized Domain:</span>
+                <span className="ml-1.5 font-mono font-bold text-purple-700 bg-purple-100/80 px-1.5 py-0.5 rounded">
+                  *.nitrr.ac.in
+                </span>
+              </div>
+            </div>
+            <span className="text-[11px] font-semibold text-slate-500">Only</span>
+          </div>
+
           {/* Sign In Button Area */}
-          <div className="space-y-4 pt-2">
+          <div className="space-y-3.5 pt-1">
             <button
               id="google-signin-btn"
               onClick={loginWithGoogle}
@@ -132,13 +152,13 @@ export const LoginScreen: React.FC = () => {
                   d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
                 />
               </svg>
-              <span>{loading ? 'Opening Google Sign-In...' : 'Continue with Google'}</span>
+              <span>{loading ? 'Opening Google Sign-In...' : 'Sign in with NITRR Google Account'}</span>
               <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all" />
             </button>
 
             <div className="flex items-center justify-center space-x-2 text-xs text-slate-500 text-center">
-              <CheckCircle2 className="w-3.5 h-3.5 text-purple-600" />
-              <span>Sign in with your university or personal Google account</span>
+              <CheckCircle2 className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+              <span>Select your official <strong className="text-slate-700">@nitrr.ac.in</strong> email during Google sign-in</span>
             </div>
           </div>
         </motion.div>
@@ -146,7 +166,7 @@ export const LoginScreen: React.FC = () => {
 
       {/* Footer */}
       <footer className="relative z-10 py-4 text-center text-xs text-slate-500">
-        <p>Campus Buzz • Safe, Verified & Unified Campus Coordination</p>
+        <p>Campus Buzz • National Institute of Technology Raipur (NITRR)</p>
       </footer>
     </div>
   );

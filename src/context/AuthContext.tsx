@@ -4,6 +4,16 @@ import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db, signInWithGoogle, logoutFirebase } from '../lib/firebase';
 import { UserProfile, UserRole } from '../types';
 
+export const isNitrrEmail = (email: string | null | undefined): boolean => {
+  if (!email) return false;
+  const lower = email.toLowerCase().trim();
+  return (
+    lower.endsWith('@nitrr.ac.in') ||
+    lower.endsWith('.nitrr.ac.in') ||
+    lower === 'dharmatejakunchi@gmail.com'
+  );
+};
+
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
@@ -30,8 +40,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let profileUnsub: (() => void) | null = null;
 
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setUser(fbUser);
       if (fbUser) {
+        // Enforce NITRR domain restriction
+        if (!isNitrrEmail(fbUser.email)) {
+          const attemptedEmail = fbUser.email || 'this account';
+          console.warn(`Sign-in rejected: ${attemptedEmail} does not end with .nitrr.ac.in`);
+          await logoutFirebase();
+          setUser(null);
+          setProfile(null);
+          setAuthError(`invalid-domain:${attemptedEmail}`);
+          setLoading(false);
+          return;
+        }
+
+        setUser(fbUser);
         setAuthError(null);
         // Fetch or create user profile in Firestore
         const userRef = doc(db, 'users', fbUser.uid);
@@ -45,20 +67,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           setProfile(data);
         } else {
-          // New Google authenticated user
-          const isAdmin = fbUser.email === 'dharmatejakunchi@gmail.com';
+          // New Google authenticated user from NITRR
+          const isAdmin = fbUser.email === 'dharmatejakunchi@gmail.com' || fbUser.email?.startsWith('admin') || fbUser.email?.startsWith('director');
+          
+          // Auto-detect department from email if present (e.g. name.it@nitrr.ac.in or 21118042.cse@nitrr.ac.in)
+          let detectedDept = 'NIT Raipur Student';
+          const emailParts = fbUser.email?.split('@')[0]?.split('.') || [];
+          if (emailParts.length > 1) {
+            const lastPart = emailParts[emailParts.length - 1].toUpperCase();
+            if (['CSE', 'IT', 'ECE', 'EE', 'MECH', 'CIVIL', 'CHEM', 'MINING', 'META', 'BIOTECH', 'MCA', 'ARCH'].includes(lastPart)) {
+              detectedDept = `Department of ${lastPart}`;
+            }
+          }
+
           const newProfile: UserProfile = {
             uid: fbUser.uid,
             email: fbUser.email || '',
-            displayName: fbUser.displayName || 'Campus User',
+            displayName: fbUser.displayName || 'NITRR Scholar',
             photoURL: fbUser.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
             role: isAdmin ? 'admin' : 'student',
-            studentId: isAdmin ? 'ADM-2026-001' : `STU-${Math.floor(1000 + Math.random() * 9000)}`,
-            hostel: isAdmin ? 'Administrative Block' : 'Hostel Block C, Room 204',
-            department: isAdmin ? 'University Administration' : 'Computer Science',
-            phone: '+1 (555) 019-2834',
-            whatsapp: '+15550192834',
-            bio: isAdmin ? 'Campus Administrator & Moderator' : 'Active on Campus Buzz • Ready to split food and cabs!',
+            studentId: isAdmin ? 'ADM-NITRR-01' : `NITRR-${Math.floor(1000 + Math.random() * 9000)}`,
+            hostel: isAdmin ? 'Administrative Block' : 'Hostel Block H, Room 204',
+            department: isAdmin ? 'NITRR Administration' : detectedDept,
+            phone: '+91 98765 43210',
+            whatsapp: '+919876543210',
+            bio: isAdmin ? 'Campus Administrator & Moderator • NIT Raipur' : 'NIT Raipur Student • Ready to connect & collaborate!',
             verifiedStudent: true,
             isBlocked: false,
             createdAt: Date.now()
@@ -77,6 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn('Notice listening to current profile:', err.message);
         });
       } else {
+        setUser(null);
         setProfile(null);
         if (profileUnsub) {
           profileUnsub();

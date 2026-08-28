@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldAlert, Copy, Check, ExternalLink, X, AlertTriangle } from 'lucide-react';
+import { ShieldAlert, Copy, Check, ExternalLink, X, AlertTriangle, GraduationCap, Lock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export const AuthErrorModal: React.FC = () => {
@@ -12,6 +12,8 @@ export const AuthErrorModal: React.FC = () => {
   const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'campus-buzz-xi.vercel.app';
   const isUnauthorizedDomain = authError === 'unauthorized-domain';
   const isPopupBlocked = authError === 'popup-blocked';
+  const isInvalidInstituteDomain = authError.startsWith('invalid-domain:');
+  const rejectedEmail = isInvalidInstituteDomain ? authError.split('invalid-domain:')[1] : '';
 
   const handleCopyHost = () => {
     navigator.clipboard.writeText(currentHost);
@@ -32,22 +34,36 @@ export const AuthErrorModal: React.FC = () => {
           <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-4">
             <div className="flex items-center space-x-3">
               <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
-                isUnauthorizedDomain 
+                isInvalidInstituteDomain
+                  ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400'
+                  : isUnauthorizedDomain 
                   ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400' 
                   : 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400'
               }`}>
-                {isUnauthorizedDomain ? <ShieldAlert className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+                {isInvalidInstituteDomain ? (
+                  <GraduationCap className="w-5 h-5" />
+                ) : isUnauthorizedDomain ? (
+                  <ShieldAlert className="w-5 h-5" />
+                ) : (
+                  <AlertTriangle className="w-5 h-5" />
+                )}
               </div>
               <div>
                 <h3 className="font-display font-bold text-base text-slate-900 dark:text-white">
-                  {isUnauthorizedDomain 
+                  {isInvalidInstituteDomain
+                    ? 'NIT Raipur Email Required'
+                    : isUnauthorizedDomain 
                     ? 'Authorize Domain in Firebase' 
                     : isPopupBlocked 
                     ? 'Google Sign-In Popup Blocked' 
                     : 'Google Sign-In Notice'}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {isUnauthorizedDomain ? 'Action required for custom / Vercel domains' : 'Authentication process update'}
+                  {isInvalidInstituteDomain
+                    ? 'Access restricted to *.nitrr.ac.in accounts'
+                    : isUnauthorizedDomain 
+                    ? 'Action required for custom / Vercel domains' 
+                    : 'Authentication process update'}
                 </p>
               </div>
             </div>
@@ -60,7 +76,33 @@ export const AuthErrorModal: React.FC = () => {
           </div>
 
           {/* Body */}
-          {isUnauthorizedDomain ? (
+          {isInvalidInstituteDomain ? (
+            <div className="space-y-4 text-xs">
+              <div className="p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-2xl space-y-1">
+                <div className="text-[11px] font-bold text-rose-700 dark:text-rose-300 flex items-center space-x-1.5">
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Unauthorized Email Account</span>
+                </div>
+                <div className="font-mono text-xs text-rose-900 dark:text-rose-200 font-semibold break-all">
+                  {rejectedEmail}
+                </div>
+              </div>
+
+              <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                Campus Buzz is an exclusive, verified campus network for <strong>National Institute of Technology Raipur (NITRR)</strong>.
+              </p>
+
+              <div className="p-4 bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900/60 rounded-2xl space-y-2">
+                <div className="font-bold text-purple-950 dark:text-purple-200 text-xs flex items-center space-x-1.5">
+                  <span>How to sign in:</span>
+                </div>
+                <ul className="space-y-1.5 text-slate-600 dark:text-slate-300 list-disc list-inside">
+                  <li>Use your official institute Google account ending in <strong className="text-purple-700 dark:text-purple-300 font-mono">.nitrr.ac.in</strong> or <strong className="text-purple-700 dark:text-purple-300 font-mono">@nitrr.ac.in</strong>.</li>
+                  <li>Example format: <code className="bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200 px-1 py-0.5 rounded font-mono text-[11px]">student.btech22@nitrr.ac.in</code></li>
+                </ul>
+              </div>
+            </div>
+          ) : isUnauthorizedDomain ? (
             <div className="space-y-4 text-xs">
               <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
                 Firebase Authentication restricts Google Sign-In popups on newly deployed domains until you whitelist the domain in your Firebase project console.
@@ -136,9 +178,9 @@ export const AuthErrorModal: React.FC = () => {
                 clearAuthError();
                 loginWithGoogle();
               }}
-              className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs transition-colors"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-xs transition-all active:scale-95"
             >
-              Retry Google Sign-In
+              {isInvalidInstituteDomain ? 'Switch to NITRR Account' : 'Retry Google Sign-In'}
             </button>
           </div>
         </motion.div>
