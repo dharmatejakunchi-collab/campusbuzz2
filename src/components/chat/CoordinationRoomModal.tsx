@@ -17,7 +17,8 @@ import {
   Sparkles,
   ShoppingBag,
   Calculator,
-  UserCheck
+  UserCheck,
+  Loader2
 } from 'lucide-react';
 import { Post, ChatMessage, CoordinationRoom, FoodOrderItem, CabSeatReservation, ResellOffer } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -31,7 +32,8 @@ import {
   onSnapshot, 
   query, 
   orderBy, 
-  serverTimestamp 
+  serverTimestamp,
+  deleteDoc
 } from 'firebase/firestore';
 import confetti from 'canvas-confetti';
 import { useCountdown } from '../../hooks/usePostExpiry';
@@ -47,14 +49,16 @@ export const CoordinationRoomModal: React.FC<CoordinationRoomModalProps> = ({
   isOpen,
   onClose
 }) => {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [roomData, setRoomData] = useState<CoordinationRoom | null>(null);
   const [inputText, setInputText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   
   // Food split interactive input
   const [foodItemName, setFoodItemName] = useState('');
-  const [foodItemPrice, setFoodItemPrice] = useState<string>('9.50');
+  const [foodItemPrice, setFoodItemPrice] = useState<string>('80');
   const [showAddFoodItem, setShowAddFoodItem] = useState(false);
 
   // Cab split interactive seat reservation
@@ -65,7 +69,7 @@ export const CoordinationRoomModal: React.FC<CoordinationRoomModalProps> = ({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const countdown = useCountdown(post?.expiresAt);
+  const countdown = useCountdown(post?.expiresAt, post?.id);
 
   // Initialize or listen to Room Document
   useEffect(() => {
@@ -174,7 +178,10 @@ export const CoordinationRoomModal: React.FC<CoordinationRoomModalProps> = ({
 
   if (!isOpen || !post) return null;
 
-  const isAuthor = profile?.uid === post.authorId;
+  const userEmail = (profile?.email || user?.email || '').toLowerCase().trim();
+  const isAdmin = profile?.role === 'admin' || userEmail === 'dharmatejakunchi@gmail.com' || userEmail.startsWith('admin');
+  const isAuthor = (profile && profile.uid === post.authorId) || (user && user.uid === post.authorId);
+  const canDelete = isAdmin || isAuthor;
   const isClosed = roomData?.isClosed || post.isClosed || post.isExpired;
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -229,7 +236,7 @@ export const CoordinationRoomModal: React.FC<CoordinationRoomModalProps> = ({
         senderId: profile.uid,
         senderName: profile.displayName,
         senderAvatar: profile.photoURL,
-        text: `🛒 Added to group order: "${foodItemName}" ($${priceNum.toFixed(2)})`,
+        text: `🛒 Added to group order: "${foodItemName}" (₹${priceNum.toFixed(0)})`,
         isSystem: true,
         createdAt: Date.now()
       });
@@ -325,7 +332,7 @@ export const CoordinationRoomModal: React.FC<CoordinationRoomModalProps> = ({
         senderId: profile.uid,
         senderName: profile.displayName,
         senderAvatar: profile.photoURL,
-        text: `🏷️ Made an offer: $${amount.toFixed(2)}`,
+        text: `🏷️ Made an offer: ₹${amount.toFixed(0)}`,
         isSystem: true,
         createdAt: Date.now()
       });
@@ -443,6 +450,48 @@ export const CoordinationRoomModal: React.FC<CoordinationRoomModalProps> = ({
               </button>
             )}
 
+            {/* Admin or Author Delete Post & Room */}
+            {canDelete && (
+              <button
+                id="delete-room-post-btn"
+                onClick={async () => {
+                  if (!confirmDelete) {
+                    setConfirmDelete(true);
+                    setTimeout(() => setConfirmDelete(false), 4000);
+                    return;
+                  }
+                  setIsDeleting(true);
+                  try {
+                    await deleteDoc(doc(db, 'posts', post.id));
+                    await deleteDoc(doc(db, 'rooms', post.id)).catch(() => {});
+                    onClose();
+                  } catch (err) {
+                    console.error('Error deleting post:', err);
+                    setIsDeleting(false);
+                    setConfirmDelete(false);
+                  }
+                }}
+                disabled={isDeleting}
+                className={`p-2 rounded-xl border transition-all text-xs font-bold flex items-center space-x-1 ${
+                  confirmDelete
+                    ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-600 px-3 animate-pulse'
+                    : 'bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 dark:text-rose-400 border-rose-200 dark:border-rose-800/60'
+                }`}
+                title={isAdmin ? "Admin: Delete Post & Room" : "Delete Post"}
+              >
+                {isDeleting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : confirmDelete ? (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    <span>Confirm Delete?</span>
+                  </>
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+              </button>
+            )}
+
             <button
               onClick={onClose}
               className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -466,12 +515,12 @@ export const CoordinationRoomModal: React.FC<CoordinationRoomModalProps> = ({
                       {post.metadata?.food?.restaurant || 'Group Order Cart'}
                     </span>
                     <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
-                      ${foodTotal.toFixed(2)} / ${minOrderTarget} target
+                      ₹{foodTotal.toFixed(0)} / ₹{minOrderTarget} target
                     </span>
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                     Drop: <span className="font-semibold text-slate-700 dark:text-slate-300">{post.metadata?.food?.dropLocation || 'Campus Lobby'}</span>
-                    {' • '}Est. Share: <span className="font-bold text-emerald-600">${perPersonEst}/person ({uniqueParticipants} participants)</span>
+                    {' • '}Est. Share: <span className="font-bold text-emerald-600">₹{perPersonEst}/person ({uniqueParticipants} participants)</span>
                   </div>
                 </div>
 
@@ -507,10 +556,10 @@ export const CoordinationRoomModal: React.FC<CoordinationRoomModalProps> = ({
                     required
                   />
                   <div className="flex items-center space-x-1 w-full sm:w-28">
-                    <span className="text-xs font-bold text-slate-400">$</span>
+                    <span className="text-xs font-bold text-slate-400">₹</span>
                     <input
                       type="number"
-                      step="0.01"
+                      step="1"
                       value={foodItemPrice}
                       onChange={(e) => setFoodItemPrice(e.target.value)}
                       placeholder="Price"
@@ -545,7 +594,7 @@ export const CoordinationRoomModal: React.FC<CoordinationRoomModalProps> = ({
                   >
                     <span className="font-bold text-slate-800 dark:text-slate-200">{item.userName?.split(' ')[0]}:</span>
                     <span className="text-slate-600 dark:text-slate-300">{item.name}</span>
-                    <span className="font-black text-amber-600 dark:text-amber-400">${item.price.toFixed(2)}</span>
+                    <span className="font-black text-amber-600 dark:text-amber-400">₹{item.price.toFixed(0)}</span>
                     {(profile?.uid === item.userId || isAuthor) && (
                       <button
                         onClick={() => handleRemoveFoodItem(item.id)}
@@ -575,8 +624,8 @@ export const CoordinationRoomModal: React.FC<CoordinationRoomModalProps> = ({
                     </span>
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Est. Total: <span className="font-bold text-slate-800 dark:text-slate-200">${estFare}</span>
-                    {' • '}Fare Split: <span className="font-black text-emerald-600">${farePerPerson}/passenger</span> ({claimedSeats.length}/{totalSeats} seats filled)
+                    Est. Total: <span className="font-bold text-slate-800 dark:text-slate-200">₹{estFare}</span>
+                    {' • '}Fare Split: <span className="font-black text-emerald-600">₹{farePerPerson}/passenger</span> ({claimedSeats.length}/{totalSeats} seats filled)
                   </div>
                 </div>
 
@@ -641,11 +690,11 @@ export const CoordinationRoomModal: React.FC<CoordinationRoomModalProps> = ({
                 <div className="flex items-center space-x-2">
                   <Tag className="w-4 h-4 text-violet-500" />
                   <span className="font-extrabold text-sm text-slate-900 dark:text-white">
-                    Asking Price: ${post.metadata?.resell?.price}
+                    Asking Price: ₹{post.metadata?.resell?.price}
                   </span>
                   {post.metadata?.resell?.originalPrice && (
                     <span className="line-through text-xs text-slate-400">
-                      ${post.metadata?.resell?.originalPrice}
+                      ₹{post.metadata?.resell?.originalPrice}
                     </span>
                   )}
                   <span className="text-[10px] font-bold uppercase bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded">
@@ -660,7 +709,7 @@ export const CoordinationRoomModal: React.FC<CoordinationRoomModalProps> = ({
               {!isClosed && !isAuthor && (
                 <form onSubmit={handleSendOffer} className="flex items-center space-x-2">
                   <div className="relative">
-                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">$</span>
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
                     <input
                       type="number"
                       value={offerInput}

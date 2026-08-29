@@ -72,35 +72,35 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
   // Intent Specific Metadata states
   // Food
-  const [restaurant, setRestaurant] = useState('Chipotle Mexican Grill');
-  const [minOrder, setMinOrder] = useState<number>(30);
-  const [foodDropLocation, setFoodDropLocation] = useState('Hostel Block C Lobby');
+  const [restaurant, setRestaurant] = useState('Night Canteen / Swiggy');
+  const [minOrder, setMinOrder] = useState<number>(250);
+  const [foodDropLocation, setFoodDropLocation] = useState('Hostel Sirpur Main Gate');
   const [orderDeadline, setOrderDeadline] = useState('11:30 PM');
 
   // Cab
-  const [cabDestination, setCabDestination] = useState('Airport Terminal 2');
-  const [cabPickup, setCabPickup] = useState('South Campus Gate');
+  const [cabDestination, setCabDestination] = useState('Raipur Junction (Railway Station)');
+  const [cabPickup, setCabPickup] = useState('NIT Raipur Main Gate');
   const [departureTime, setDepartureTime] = useState('Friday 6:00 AM');
   const [totalSeats, setTotalSeats] = useState<number>(4);
   const [availableSeats, setAvailableSeats] = useState<number>(2);
-  const [estFare, setEstFare] = useState<number>(40);
+  const [estFare, setEstFare] = useState<number>(350);
 
   // Resell
-  const [price, setPrice] = useState<number>(50);
-  const [originalPrice, setOriginalPrice] = useState<number>(90);
+  const [price, setPrice] = useState<number>(450);
+  const [originalPrice, setOriginalPrice] = useState<number>(850);
   const [condition, setCondition] = useState<'brand_new' | 'like_new' | 'good' | 'fair'>('like_new');
-  const [itemLocation, setItemLocation] = useState('Student Center');
+  const [itemLocation, setItemLocation] = useState('Central Library / Student Hub');
   const [isNegotiable, setIsNegotiable] = useState(true);
 
   // Lost / Found
-  const [itemType, setItemType] = useState('Keys / Card Holder');
+  const [itemType, setItemType] = useState('Keys / ID Card');
   const [locationFoundOrLost, setLocationFoundOrLost] = useState('Central Library 2nd Floor');
   const [dateOccurred, setDateOccurred] = useState('Today afternoon');
   const [reward, setReward] = useState('');
-  const [contactPhone, setContactPhone] = useState(profile?.phone || '+1 (555) 382-9104');
-  const [contactWhatsapp, setContactWhatsapp] = useState(profile?.whatsapp || '+15553829104');
-  const [contactTelegram, setContactTelegram] = useState(profile?.telegram || '@student_campus');
-  const [roomLocation, setRoomLocation] = useState(profile?.hostel || 'Hostel Block C, Room 302');
+  const [contactPhone, setContactPhone] = useState(profile?.phone || '');
+  const [contactWhatsapp, setContactWhatsapp] = useState(profile?.whatsapp || '');
+  const [contactTelegram, setContactTelegram] = useState(profile?.telegram || '');
+  const [roomLocation, setRoomLocation] = useState(profile?.hostel || 'Hostel Block H');
 
   const [loading, setLoading] = useState(false);
   const [aiEnhancing, setAiEnhancing] = useState(false);
@@ -124,19 +124,20 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   };
 
   const handleAiEnhance = async () => {
-    if (!title && !description) {
-      setErrorMessage('Please type at least a short title or draft description for AI assistance.');
-      return;
-    }
     setAiEnhancing(true);
     setErrorMessage('');
     try {
+      const userPrompt = (title || description)
+        ? `Campus Buzz post draft:\nTitle: ${title}\nDescription: ${description}\nCategory: #${primaryTag}`
+        : `Write an engaging campus coordination request for #${primaryTag} at NIT Raipur campus.`;
+
       const res = await fetch('/api/gemini-assist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `Campus Buzz post draft:\nTitle: ${title}\nDescription: ${description}\nCategory: ${primaryTag}`,
-          type: 'hashtags'
+          prompt: userPrompt,
+          type: 'hashtags',
+          category: primaryTag
         })
       });
       const data = await res.json();
@@ -150,6 +151,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       }
     } catch (err) {
       console.error('AI Enhance error:', err);
+      setErrorMessage('Could not complete AI enhancement. Please check network connection.');
     } finally {
       setAiEnhancing(false);
     }
@@ -489,7 +491,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Min Order Target ($)</label>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Min Order Target (₹)</label>
                   <input
                     type="number"
                     value={minOrder}
@@ -564,7 +566,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Estimated Total Fare ($)</label>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Estimated Total Fare (₹)</label>
                   <input
                     type="number"
                     value={estFare}
@@ -583,7 +585,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Selling Price ($)</label>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Selling Price (₹)</label>
                   <input
                     type="number"
                     value={price}
@@ -592,7 +594,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Original / Retail Price ($)</label>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Original / Retail Price (₹)</label>
                   <input
                     type="number"
                     value={originalPrice}
@@ -669,7 +671,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       type="text"
                       value={reward}
                       onChange={(e) => setReward(e.target.value)}
-                      placeholder="e.g., $15 treat / Coffee"
+                      placeholder="e.g., ₹200 / Canteen treat"
                       className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                     />
                   </div>

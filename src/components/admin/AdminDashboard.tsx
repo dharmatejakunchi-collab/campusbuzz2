@@ -260,7 +260,6 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteUser = async (targetUser: UserProfile) => {
-    if (!window.confirm(`Are you sure you want to delete user "${targetUser.displayName}" (${targetUser.email})?`)) return;
     try {
       await deleteDoc(doc(db, 'users', targetUser.uid));
       notify(`User ${targetUser.displayName} removed from platform`);
@@ -310,12 +309,13 @@ export const AdminDashboard: React.FC = () => {
 
   // --- Admin Post Actions ---
   const handleDeletePost = async (postId: string, postTitle: string) => {
-    if (!window.confirm(`Delete post "${postTitle}"?`)) return;
     try {
       await deleteDoc(doc(db, 'posts', postId));
-      notify(`Post deleted successfully`);
+      await deleteDoc(doc(db, 'rooms', postId)).catch(() => {});
+      notify(`Post "${postTitle}" deleted successfully`);
     } catch (e) {
       console.error('Failed to delete post:', e);
+      notify(`Error deleting post: ${e instanceof Error ? e.message : 'Unknown error'}`);
     }
   };
 
@@ -349,23 +349,23 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteComplaint = async (complaintId: string) => {
-    if (!window.confirm(`Delete this complaint record?`)) return;
     try {
       await deleteDoc(doc(db, 'complaints', complaintId));
       notify(`Complaint removed from database`);
     } catch (e) {
       console.error('Failed to delete complaint:', e);
+      notify(`Failed to delete complaint`);
     }
   };
 
   // --- Admin Announcement Actions ---
   const handleDeleteAnnouncement = async (id: string) => {
-    if (!window.confirm(`Delete this announcement?`)) return;
     try {
       await deleteDoc(doc(db, 'club_announcements', id));
       notify(`Announcement deleted`);
     } catch (e) {
       console.error('Failed to delete announcement:', e);
+      notify(`Failed to delete announcement`);
     }
   };
 
@@ -388,9 +388,6 @@ export const AdminDashboard: React.FC = () => {
 
   // --- Purge Demo Data Action ---
   const handlePurgeAllDemoData = async () => {
-    if (!window.confirm('⚠️ Are you sure you want to purge all demo posts, demo complaints, demo announcements, and demo events from Firestore? Real user-created posts will be preserved.')) {
-      return;
-    }
     setPurging(true);
     const res = await purgeAllDemoData();
     setPurging(false);

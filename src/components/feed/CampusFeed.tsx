@@ -23,7 +23,7 @@ import { Post, HashtagType } from '../../types';
 import { HASHTAG_CONFIGS } from '../../utils/hashtagConfig';
 import { PostCard } from './PostCard';
 import { db } from '../../lib/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -58,8 +58,16 @@ export const CampusFeed: React.FC<CampusFeedProps> = ({
       q,
       (snapshot) => {
         const list: Post[] = [];
-        snapshot.forEach((doc) => {
-          list.push({ id: doc.id, ...doc.data() } as Post);
+        const now = Date.now();
+        snapshot.forEach((postDoc) => {
+          const data = postDoc.data() as Post;
+          // If post has already expired, automatically delete from database
+          if (data.expiresAt && data.expiresAt <= now) {
+            deleteDoc(doc(db, 'posts', postDoc.id)).catch(() => {});
+            deleteDoc(doc(db, 'rooms', postDoc.id)).catch(() => {});
+            return;
+          }
+          list.push({ id: postDoc.id, ...data });
         });
         setPosts(list);
         setLoading(false);
@@ -76,6 +84,12 @@ export const CampusFeed: React.FC<CampusFeedProps> = ({
   // Filter and Sort logic
   const filteredPosts = posts
     .filter((post) => {
+      // Auto-exclude expired posts
+      if (post.expiresAt && post.expiresAt <= Date.now()) {
+        deleteDoc(doc(db, 'posts', post.id)).catch(() => {});
+        deleteDoc(doc(db, 'rooms', post.id)).catch(() => {});
+        return false;
+      }
       // Hashtag filter
       if (selectedTag !== 'all') {
         const cleanSelected = selectedTag.toLowerCase().replace(/^#/, '');

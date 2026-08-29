@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 
 export function formatTimeRemaining(expiresAt?: number): {
   formatted: string;
@@ -43,8 +43,8 @@ export function formatTimeRemaining(expiresAt?: number): {
   return { formatted, totalSeconds, isExpired: false, urgency };
 }
 
-// Hook that triggers re-render every second for ticking countdowns
-export function useCountdown(expiresAt?: number) {
+// Hook that triggers re-render every second for ticking countdowns and auto-deletes when expired
+export function useCountdown(expiresAt?: number, postId?: string) {
   const [time, setTime] = useState(() => formatTimeRemaining(expiresAt));
 
   useEffect(() => {
@@ -54,49 +54,50 @@ export function useCountdown(expiresAt?: number) {
     const interval = setInterval(() => {
       const updated = formatTimeRemaining(expiresAt);
       setTime(updated);
+
+      if (updated.isExpired && postId) {
+        // Auto-delete post from Firestore once expired
+        deleteDoc(doc(db, 'posts', postId)).catch(() => {});
+        deleteDoc(doc(db, 'rooms', postId)).catch(() => {});
+      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [expiresAt]);
+  }, [expiresAt, postId]);
 
   return time;
 }
 
-// Background auto-cleanup worker that periodically checks for expired posts in Firestore
+// Background auto-cleanup worker that periodically checks for and deletes expired posts in Firestore
 export function useBackgroundExpiryWorker() {
   useEffect(() => {
     const runWorker = async () => {
       try {
         const now = Date.now();
         const postsRef = collection(db, 'posts');
-        const q = query(postsRef, where('isExpired', '==', false));
-        const snapshot = await getDocs(q);
+        const snapshot = await getDocs(postsRef);
 
-        const expiredPromises: Promise<any>[] = [];
+        const deletePromises: Promise<any>[] = [];
         snapshot.forEach((postDoc) => {
           const data = postDoc.data();
           if (data.expiresAt && data.expiresAt <= now) {
-            // Auto delete or mark expired via background worker
-            console.log(`[Expiry Worker] Auto-expiring post: ${postDoc.id} (${data.title})`);
-            expiredPromises.push(
-              updateDoc(doc(db, 'posts', postDoc.id), {
-                isExpired: true,
-                isClosed: true,
-                closedReason: 'Auto-expired: Lifespan timer ended'
-              })
-            );
+            // Auto delete expired post and room from database
+            console.log(`[Expiry Worker] Auto-deleting expired post: ${postDoc.id} (${data.title})`);
+            deletePromises.push(deleteDoc(doc(db, 'posts', postDoc.id)));
+            deletePromises.push(deleteDoc(doc(db, 'rooms', postDoc.id)).catch(() => {}));
           }
         });
 
-        await Promise.all(expiredPromises);
+        await Promise.all(deletePromises);
       } catch (err) {
         console.error('[Expiry Worker Error]', err);
       }
     };
 
-    // Run initially and then every 30 seconds as background task
+    // Run immediately and then every 10 seconds as background task
     runWorker();
-    const interval = setInterval(runWorker, 30000);
+    const interval = setInterval(runWorker, 10000);
     return () => clearInterval(interval);
   }, []);
 }
+

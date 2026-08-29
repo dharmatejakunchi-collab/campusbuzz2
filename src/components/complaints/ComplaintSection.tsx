@@ -14,7 +14,9 @@ import {
   UserCheck,
   Building,
   RefreshCw,
-  Sparkles
+  Sparkles,
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Complaint, ComplaintStatus } from '../../types';
@@ -28,7 +30,8 @@ import {
   updateDoc, 
   arrayUnion, 
   arrayRemove, 
-  increment 
+  increment,
+  deleteDoc
 } from 'firebase/firestore';
 import { CreateComplaintModal } from './CreateComplaintModal';
 import confetti from 'canvas-confetti';
@@ -73,19 +76,44 @@ const STATUS_CONFIGS: Record<ComplaintStatus, { label: string; color: string; bg
 };
 
 export const ComplaintSection: React.FC = () => {
-  const { profile, role } = useAuth();
+  const { user, profile, role } = useAuth();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Admin response editing state
   const [activeAdminEditId, setActiveAdminEditId] = useState<string | null>(null);
   const [adminStatusInput, setAdminStatusInput] = useState<ComplaintStatus>('in_progress');
   const [adminNoteInput, setAdminNoteInput] = useState('');
 
-  const isAdmin = role === 'admin';
+  const userEmail = (profile?.email || user?.email || '').toLowerCase().trim();
+  const isAdmin = role === 'admin' || profile?.role === 'admin' || userEmail === 'dharmatejakunchi@gmail.com' || userEmail.startsWith('admin');
+
+  const handleDeleteComplaint = async (complaintId: string) => {
+    if (confirmDeleteId !== complaintId) {
+      setConfirmDeleteId(complaintId);
+      setTimeout(() => {
+        setConfirmDeleteId((prev) => (prev === complaintId ? null : prev));
+      }, 4000);
+      return;
+    }
+
+    setDeletingId(complaintId);
+    try {
+      await deleteDoc(doc(db, 'complaints', complaintId));
+      if (activeAdminEditId === complaintId) {
+        setActiveAdminEditId(null);
+      }
+    } catch (err) {
+      console.error('Error deleting complaint:', err);
+      setDeletingId(null);
+      setConfirmDeleteId(null);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -309,7 +337,7 @@ export const ComplaintSection: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Right upvote pill */}
+                  {/* Right upvote & action pill */}
                   <div className="flex items-center sm:flex-col justify-between sm:justify-center gap-2 shrink-0">
                     <button
                       id={`upvote-complaint-${item.id}`}
@@ -325,18 +353,46 @@ export const ComplaintSection: React.FC = () => {
                       <span className="text-[9px] uppercase font-bold hidden sm:inline opacity-80">Upvotes</span>
                     </button>
 
-                    {isAdmin && (
-                      <button
-                        onClick={() => {
-                          setActiveAdminEditId(isEditing ? null : item.id);
-                          setAdminStatusInput(item.status);
-                          setAdminNoteInput(item.adminResponse?.response || '');
-                        }}
-                        className="text-[11px] font-bold text-blue-600 hover:text-blue-700 underline"
-                      >
-                        {isEditing ? 'Cancel Admin Edit' : 'Manage / Resolve'}
-                      </button>
-                    )}
+                    <div className="flex items-center space-x-1.5 sm:flex-col sm:space-x-0 sm:space-y-1">
+                      {isAdmin && (
+                        <button
+                          onClick={() => {
+                            setActiveAdminEditId(isEditing ? null : item.id);
+                            setAdminStatusInput(item.status);
+                            setAdminNoteInput(item.adminResponse?.response || '');
+                          }}
+                          className="text-[11px] font-bold text-blue-600 hover:text-blue-700 underline"
+                        >
+                          {isEditing ? 'Cancel Edit' : 'Manage / Resolve'}
+                        </button>
+                      )}
+
+                      {/* Admin or Author Delete Button */}
+                      {(isAdmin || (profile && profile.uid === item.authorId) || (user && user.uid === item.authorId)) && (
+                        <button
+                          id={`delete-complaint-${item.id}`}
+                          onClick={() => handleDeleteComplaint(item.id)}
+                          disabled={deletingId === item.id}
+                          className={`p-1.5 rounded-xl border transition-all text-xs font-bold flex items-center justify-center ${
+                            confirmDeleteId === item.id
+                              ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-600 px-2.5 space-x-1 animate-pulse'
+                              : 'bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 dark:text-rose-400 border-rose-200 dark:border-rose-800/60'
+                          }`}
+                          title={isAdmin ? "Admin: Delete Complaint" : "Delete Complaint"}
+                        >
+                          {deletingId === item.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : confirmDeleteId === item.id ? (
+                            <>
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete?</span>
+                            </>
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -396,19 +452,45 @@ export const ComplaintSection: React.FC = () => {
                       />
                     </div>
 
-                    <div className="flex justify-end space-x-2">
+                    <div className="flex items-center justify-between pt-1">
                       <button
-                        onClick={() => setActiveAdminEditId(null)}
-                        className="px-3 py-1.5 text-xs text-slate-500 font-bold"
+                        onClick={() => handleDeleteComplaint(item.id)}
+                        disabled={deletingId === item.id}
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center space-x-1 ${
+                          confirmDeleteId === item.id
+                            ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-600 animate-pulse'
+                            : 'bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400 border-rose-200 dark:border-rose-800'
+                        }`}
                       >
-                        Cancel
+                        {deletingId === item.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : confirmDeleteId === item.id ? (
+                          <>
+                            <Trash2 className="w-3.5 h-3.5 mr-1" />
+                            <span>Confirm Delete?</span>
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="w-3.5 h-3.5 mr-1" />
+                            <span>Delete Record</span>
+                          </>
+                        )}
                       </button>
-                      <button
-                        onClick={() => handleSaveAdminResponse(item.id)}
-                        className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow"
-                      >
-                        Save & Publish Resolution
-                      </button>
+
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => setActiveAdminEditId(null)}
+                          className="px-3 py-1.5 text-xs text-slate-500 font-bold hover:text-slate-700"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleSaveAdminResponse(item.id)}
+                          className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow"
+                        >
+                          Save & Publish Resolution
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

@@ -19,14 +19,16 @@ import {
   Sparkles,
   ShoppingBag,
   Check,
-  Building
+  Building,
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { Post, HashtagType } from '../../types';
 import { HASHTAG_CONFIGS } from '../../utils/hashtagConfig';
 import { useCountdown } from '../../hooks/usePostExpiry';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../lib/firebase';
-import { doc, updateDoc, arrayUnion, arrayRemove, increment } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, increment, deleteDoc } from 'firebase/firestore';
 
 interface PostCardProps {
   post: Post;
@@ -41,18 +43,49 @@ export const PostCard: React.FC<PostCardProps> = ({
   onOpenContact,
   onFilterTag
 }) => {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const primaryTag = post.primaryHashtag || 'general';
   const tagConfig = HASHTAG_CONFIGS[primaryTag] || HASHTAG_CONFIGS.general;
   const isCoordinationChat = primaryTag === 'foodsplit' || primaryTag === 'cabsplit' || primaryTag === 'resell';
   const isDirectContact = primaryTag === 'lost' || primaryTag === 'found';
 
-  // Live countdown timer for posts that have expiry (foodsplit and cabsplit)
-  const countdown = useCountdown(post.expiresAt);
+  const userEmail = (profile?.email || user?.email || '').toLowerCase().trim();
+  const isAdmin = profile?.role === 'admin' || userEmail === 'dharmatejakunchi@gmail.com' || userEmail.startsWith('admin');
+  const isAuthor = (profile && profile.uid === post.authorId) || (user && user.uid === post.authorId);
+  const canDelete = isAdmin || isAuthor;
+
+  // Live countdown timer for posts that have expiry (auto-deletes post when timer reaches 0)
+  const countdown = useCountdown(post.expiresAt, post.id);
   const isExpired = post.isExpired || countdown.isExpired;
 
   const isLiked = profile ? post.likedBy?.includes(profile.uid) : false;
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!canDelete || isDeleting) return;
+
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      setTimeout(() => {
+        setConfirmDelete(false);
+      }, 4000);
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await deleteDoc(doc(db, 'posts', post.id));
+      await deleteDoc(doc(db, 'rooms', post.id)).catch(() => {});
+    } catch (err) {
+      console.error('Error deleting post:', err);
+      setIsDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
 
   const handleLikeToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -140,30 +173,59 @@ export const PostCard: React.FC<PostCardProps> = ({
           )}
         </div>
 
-        {/* Countdown Timer Badge for Foodsplit & Cabsplit */}
-        {tagConfig.requiresTimer && post.expiresAt && (
-          <div className="absolute top-3 right-3 z-10">
-            {isExpired ? (
-              <span className="inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-900/85 text-slate-300 border border-slate-700 shadow-md backdrop-blur-md">
-                <Clock className="w-3.5 h-3.5 mr-1 text-slate-400" />
-                Expired
-              </span>
-            ) : (
-              <span
-                className={`inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-black shadow-md backdrop-blur-md transition-all ${
-                  countdown.urgency === 'critical'
-                    ? 'bg-rose-500 text-white animate-pulse border border-rose-300'
-                    : countdown.urgency === 'soon'
-                    ? 'bg-amber-400 text-slate-950 border border-amber-300'
-                    : 'bg-slate-900/85 text-emerald-300 border border-emerald-400/40'
-                }`}
-              >
-                <Clock className="w-3.5 h-3.5 mr-1 shrink-0" />
-                <span>{countdown.formatted} left</span>
-              </span>
-            )}
-          </div>
-        )}
+        {/* Top Right Badges & Quick Admin/Author Delete */}
+        <div className="absolute top-3 right-3 z-10 flex items-center space-x-1.5">
+          {/* Countdown Timer Badge for Foodsplit & Cabsplit */}
+          {tagConfig.requiresTimer && post.expiresAt && (
+            <div>
+              {isExpired ? (
+                <span className="inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-900/85 text-slate-300 border border-slate-700 shadow-md backdrop-blur-md">
+                  <Clock className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                  Expired
+                </span>
+              ) : (
+                <span
+                  className={`inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-black shadow-md backdrop-blur-md transition-all ${
+                    countdown.urgency === 'critical'
+                      ? 'bg-rose-500 text-white animate-pulse border border-rose-300'
+                      : countdown.urgency === 'soon'
+                      ? 'bg-amber-400 text-slate-950 border border-amber-300'
+                      : 'bg-slate-900/85 text-emerald-300 border border-emerald-400/40'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5 mr-1 shrink-0" />
+                  <span>{countdown.formatted} left</span>
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Quick Delete for Admin & Author */}
+          {canDelete && (
+            <button
+              id={`delete-post-${post.id}`}
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className={`p-1.5 rounded-xl backdrop-blur-md shadow-md transition-all flex items-center justify-center text-xs font-bold ${
+                confirmDelete
+                  ? 'bg-rose-600 hover:bg-rose-700 text-white px-2.5 space-x-1 border border-rose-300 animate-pulse'
+                  : 'bg-black/70 hover:bg-rose-600 text-white border border-white/20'
+              }`}
+              title={isAdmin ? "Admin: Delete post" : "Delete your post"}
+            >
+              {isDeleting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : confirmDelete ? (
+                <>
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Confirm?</span>
+                </>
+              ) : (
+                <Trash2 className="w-3.5 h-3.5" />
+              )}
+            </button>
+          )}
+        </div>
 
         {/* Bottom Banner on Image (Specific intent preview) */}
         <div className="absolute bottom-2.5 left-3 right-3 z-10 flex items-center justify-between text-white text-xs">
@@ -172,7 +234,7 @@ export const PostCard: React.FC<PostCardProps> = ({
               <ShoppingBag className="w-3.5 h-3.5 text-amber-300 shrink-0" />
               <span className="font-bold truncate">{post.metadata.food.restaurant}</span>
               {post.metadata.food.minOrder && (
-                <span className="text-amber-200 font-semibold shrink-0">• Min ${post.metadata.food.minOrder}</span>
+                <span className="text-amber-200 font-semibold shrink-0">• Min ₹{post.metadata.food.minOrder}</span>
               )}
             </div>
           )}
@@ -187,9 +249,9 @@ export const PostCard: React.FC<PostCardProps> = ({
 
           {primaryTag === 'resell' && post.metadata?.resell && (
             <div className="flex items-center space-x-2 bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/15">
-              <span className="text-emerald-300 font-black text-sm">${post.metadata.resell.price}</span>
+              <span className="text-emerald-300 font-black text-sm">₹{post.metadata.resell.price}</span>
               {post.metadata.resell.originalPrice && (
-                <span className="line-through text-slate-300 text-[10px]">${post.metadata.resell.originalPrice}</span>
+                <span className="line-through text-slate-300 text-[10px]">₹{post.metadata.resell.originalPrice}</span>
               )}
               <span className="text-[9px] uppercase font-bold bg-purple-500/40 text-purple-200 px-1.5 py-0.5 rounded">
                 {post.metadata.resell.condition.replace('_', ' ')}
@@ -223,7 +285,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           {primaryTag === 'foodsplit' && post.metadata?.food?.minOrder && !isExpired && (
             <div className="mt-2.5 p-2 rounded-xl bg-amber-50 border border-amber-200 text-xs">
               <div className="flex items-center justify-between text-[11px] font-bold text-amber-900 mb-1">
-                <span>Pool Progress (${currentTotal}/${minOrder})</span>
+                <span>Pool Progress (₹{currentTotal}/₹{minOrder})</span>
                 <span>{foodProgress}% Target</span>
               </div>
               <div className="w-full h-1.5 bg-amber-200/80 rounded-full overflow-hidden">
@@ -298,6 +360,32 @@ export const PostCard: React.FC<PostCardProps> = ({
 
           {/* Action CTAs */}
           <div className="flex items-center space-x-1.5">
+            {/* Quick delete in footer if author or admin */}
+            {canDelete && (
+              <button
+                id={`footer-delete-${post.id}`}
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className={`p-1.5 rounded-xl border transition-all text-xs font-bold flex items-center justify-center ${
+                  confirmDelete
+                    ? 'bg-rose-600 text-white border-rose-600 px-2 space-x-1 animate-pulse'
+                    : 'bg-rose-50/50 hover:bg-rose-100/70 text-rose-500 border-rose-100'
+                }`}
+                title={isAdmin ? "Admin: Delete post" : "Delete your post"}
+              >
+                {isDeleting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : confirmDelete ? (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    <span>Delete?</span>
+                  </>
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+              </button>
+            )}
+
             {/* Share action */}
             <button
               onClick={handleShare}

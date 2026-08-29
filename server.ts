@@ -28,43 +28,98 @@ async function startServer() {
   // AI Assistant endpoint for hashtag suggestion and drafting
   app.post("/api/gemini-assist", async (req, res) => {
     try {
-      const { prompt, type } = req.body;
-      const ai = getAI();
-      if (!ai) {
-        return res.status(200).json({
-          suggestion: "Campus coordination assistant ready. (Add GEMINI_API_KEY for advanced generation)",
-          hashtags: ["foodsplit", "campuslife"]
-        });
+      const { prompt, type, category } = req.body || {};
+      const apiKey = process.env.GEMINI_API_KEY;
+
+      // Smart rule-based generator for fallback
+      const generateSmartFallback = () => {
+        const cat = String(category || "campus").toLowerCase();
+        let fallbackHashtags = ["campusbuzz", "nitraipur"];
+        let fallbackTitle = "";
+        let fallbackSummary = "";
+
+        if (cat.includes("food")) {
+          fallbackHashtags = ["foodsplit", "nitrr_mess", "nightcanteen", "hostelH"];
+          fallbackTitle = "Night Canteen / Swiggy Delivery Split to Hostel";
+          fallbackSummary = "Ordering food right now! Looking for 2-3 campus mates to share delivery fee and minimum order discount.";
+        } else if (cat.includes("cab")) {
+          fallbackHashtags = ["cabsplit", "raipur_junction", "airport_rpr", "nitrr_cabs"];
+          fallbackTitle = "Cab Share to Raipur Railway Station / Airport";
+          fallbackSummary = "Booking an Ola/Uber cab this weekend. Have 2 open seats available to split fare equally.";
+        } else if (cat.includes("resell")) {
+          fallbackHashtags = ["resell", "campusdeals", "nitrr_seniors", "books_stationery"];
+          fallbackTitle = "Engineering Books & Study Materials in Good Condition";
+          fallbackSummary = "Selling well-maintained semester notes and reference textbooks at a student-friendly discounted price.";
+        } else if (cat.includes("lost") || cat.includes("found")) {
+          fallbackHashtags = ["lostandfound", "nitrr_campus", "central_library", "amul_parlour"];
+          fallbackTitle = "Important Campus Item Report at Central Library";
+          fallbackSummary = "Item spotted/lost near main corridor. Please reach out with proof of ownership or contact directly.";
+        } else {
+          fallbackHashtags = ["campusbuzz", "nitrr", "studenthub"];
+          fallbackTitle = "NIT Raipur Campus Coordination Notice";
+          fallbackSummary = "Active student coordination request for NIT Raipur campus community.";
+        }
+
+        return {
+          suggestedTitle: prompt ? `NITRR: ${String(prompt).slice(0, 45).replace(/\n/g, ' ')}` : fallbackTitle,
+          summary: fallbackSummary,
+          hashtags: fallbackHashtags
+        };
+      };
+
+      if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
+        console.log("GEMINI_API_KEY not configured, using smart coordination generator.");
+        return res.json({ success: true, data: generateSmartFallback() });
       }
 
-      let systemInstruction = "";
-      if (type === "hashtags") {
-        systemInstruction = `You are a campus assistant for a university coordination app called Campus Buzz. The primary hashtags are #foodsplit, #cabsplit, #resell, #lost, #found. Analyze the user's post title and text and return 1-4 relevant hashtags and a 1-sentence catchy description or tip. Return valid JSON: {"hashtags": string[], "suggestedTitle": string, "summary": string}`;
-      } else {
-        systemInstruction = `You are a campus assistant helping a student write a clear, concise campus coordination post. Format nicely. Return valid JSON: {"enhancedDescription": string, "suggestedHashtag": string, "tips": string[]}`;
-      }
+      const ai = new GoogleGenAI({ apiKey });
+      const systemInstruction = `You are an AI assistant for Campus Buzz, a verified student coordination app at NIT Raipur (National Institute of Technology Raipur).
+Analyze the student's draft post and output a JSON response with:
+1. "suggestedTitle": a concise, catchy, high-impact post title (max 50 chars).
+2. "summary": a polished 1-2 sentence description detailing timing, split details, or pickup points clearly.
+3. "hashtags": an array of 2-4 clean hashtags without '#' symbols (e.g., ["foodsplit", "hostelD", "nitrr"]).
+Return ONLY valid JSON.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt || "Help split food delivery from McDonald's with 3 people in Hall 4",
+        model: "gemini-3.6-flash",
+        contents: prompt || "Help organize a cab share or food order split on campus",
         config: {
           systemInstruction,
           responseMimeType: "application/json"
         }
       });
 
-      const responseText = response.text;
-      let data = {};
+      const rawText = response.text || "{}";
+      // Strip potential code fencing
+      const cleanJson = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+      let parsedData: any = {};
       try {
-        data = JSON.parse(responseText || "{}");
-      } catch (e) {
-        data = { text: responseText };
+        parsedData = JSON.parse(cleanJson);
+      } catch (parseErr) {
+        console.warn("JSON parse fallback for Gemini response:", parseErr);
+        parsedData = generateSmartFallback();
       }
 
-      return res.json({ success: true, data });
+      return res.json({
+        success: true,
+        data: {
+          suggestedTitle: parsedData.suggestedTitle || parsedData.title || undefined,
+          summary: parsedData.summary || parsedData.enhancedDescription || parsedData.description || undefined,
+          hashtags: Array.isArray(parsedData.hashtags) ? parsedData.hashtags : ["foodsplit", "campuslife"]
+        }
+      });
     } catch (err: any) {
-      console.error("AI Generation Error:", err);
-      return res.status(500).json({ error: err.message || "Failed to generate AI suggestions" });
+      console.error("AI Generation Error in /api/gemini-assist:", err);
+      // Fail gracefully so user flow is never broken
+      return res.json({
+        success: true,
+        data: {
+          suggestedTitle: "Campus Coordination Request",
+          summary: "Looking for campus peers to coordinate on this request. Join group room or reach out!",
+          hashtags: ["campusbuzz", "nitrr"]
+        },
+        notice: "Generated with local fallback due to API response."
+      });
     }
   });
 

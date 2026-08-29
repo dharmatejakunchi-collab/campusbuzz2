@@ -14,12 +14,14 @@ import {
   AlertTriangle,
   Flame,
   Clock,
-  ArrowRight
+  ArrowRight,
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { ClubAnnouncement } from '../../types';
 import { db } from '../../lib/firebase';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc, arrayUnion, arrayRemove, increment } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, updateDoc, arrayUnion, arrayRemove, increment, deleteDoc } from 'firebase/firestore';
 import { CreateAnnouncementModal } from './CreateAnnouncementModal';
 
 interface ClubSectionProps {
@@ -27,14 +29,37 @@ interface ClubSectionProps {
 }
 
 export const ClubSection: React.FC<ClubSectionProps> = ({ onNavigateToCalendar }) => {
-  const { profile, role } = useAuth();
+  const { user, profile, role } = useAuth();
   const [announcements, setAnnouncements] = useState<ClubAnnouncement[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeFormEmbedId, setActiveFormEmbedId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const canPost = role === 'club' || role === 'committee' || role === 'admin';
+  const userEmail = (profile?.email || user?.email || '').toLowerCase().trim();
+  const isAdmin = role === 'admin' || profile?.role === 'admin' || userEmail === 'dharmatejakunchi@gmail.com' || userEmail.startsWith('admin');
+  const canPost = role === 'club' || role === 'committee' || isAdmin;
+
+  const handleDeleteAnnouncement = async (item: ClubAnnouncement) => {
+    if (confirmDeleteId !== item.id) {
+      setConfirmDeleteId(item.id);
+      setTimeout(() => {
+        setConfirmDeleteId((prev) => (prev === item.id ? null : prev));
+      }, 4000);
+      return;
+    }
+
+    setDeletingId(item.id);
+    try {
+      await deleteDoc(doc(db, 'club_announcements', item.id));
+    } catch (err) {
+      console.error('Error deleting announcement:', err);
+      setDeletingId(null);
+      setConfirmDeleteId(null);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -217,11 +242,39 @@ export const ClubSection: React.FC<ClubSectionProps> = ({ onNavigateToCalendar }
                         </div>
                       </div>
 
-                      {item.isPinned && (
-                        <span className="px-2 py-0.5 rounded text-[10px] uppercase font-black bg-amber-100 text-amber-800 border border-amber-200">
-                          Pinned Notice
-                        </span>
-                      )}
+                      <div className="flex items-center space-x-2">
+                        {item.isPinned && (
+                          <span className="px-2 py-0.5 rounded text-[10px] uppercase font-black bg-amber-100 text-amber-800 border border-amber-200">
+                            Pinned Notice
+                          </span>
+                        )}
+
+                        {/* Admin or Author Delete Button */}
+                        {(isAdmin || (profile && profile.uid === item.authorId) || (user && user.uid === item.authorId)) && (
+                          <button
+                            id={`delete-announcement-${item.id}`}
+                            onClick={() => handleDeleteAnnouncement(item)}
+                            disabled={deletingId === item.id}
+                            className={`p-1.5 rounded-xl border transition-all text-xs font-bold flex items-center justify-center ${
+                              confirmDeleteId === item.id
+                                ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-600 px-2.5 space-x-1 animate-pulse'
+                                : 'bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 dark:text-rose-400 border-rose-200 dark:border-rose-800/60'
+                            }`}
+                            title={isAdmin ? "Admin: Delete Announcement" : "Delete Announcement"}
+                          >
+                            {deletingId === item.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : confirmDeleteId === item.id ? (
+                              <>
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Delete?</span>
+                              </>
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Title & Body */}

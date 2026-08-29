@@ -17,7 +17,9 @@ import {
   Inbox,
   CheckCircle2,
   XCircle,
-  Share2
+  Share2,
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { CampusEvent, EventRequest } from '../../types';
@@ -42,7 +44,7 @@ interface EventCalendarViewProps {
 }
 
 export const EventCalendarView: React.FC<EventCalendarViewProps> = ({ initialSelectedEventId }) => {
-  const { profile, role } = useAuth();
+  const { user, profile, role } = useAuth();
   const [events, setEvents] = useState<CampusEvent[]>([]);
   const [requests, setRequests] = useState<EventRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +52,8 @@ export const EventCalendarView: React.FC<EventCalendarViewProps> = ({ initialSel
   const [activeTab, setActiveTab] = useState<'calendar' | 'requests'>('calendar');
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showDirectCreateModal, setShowDirectCreateModal] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // New Event Form for Clubs/Admins
   const [newTitle, setNewTitle] = useState('');
@@ -61,7 +65,28 @@ export const EventCalendarView: React.FC<EventCalendarViewProps> = ({ initialSel
   const [newBanner, setNewBanner] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const canManage = role === 'club' || role === 'committee' || role === 'admin';
+  const userEmail = (profile?.email || user?.email || '').toLowerCase().trim();
+  const isAdmin = role === 'admin' || profile?.role === 'admin' || userEmail === 'dharmatejakunchi@gmail.com' || userEmail.startsWith('admin');
+  const canManage = role === 'club' || role === 'committee' || isAdmin;
+
+  const handleDeleteEvent = async (eventId: string) => {
+    if (confirmDeleteId !== eventId) {
+      setConfirmDeleteId(eventId);
+      setTimeout(() => {
+        setConfirmDeleteId((prev) => (prev === eventId ? null : prev));
+      }, 4000);
+      return;
+    }
+
+    setDeletingId(eventId);
+    try {
+      await deleteDoc(doc(db, 'events', eventId));
+    } catch (err) {
+      console.error('Error deleting event:', err);
+      setDeletingId(null);
+      setConfirmDeleteId(null);
+    }
+  };
 
   // Real-time events subscriber
   useEffect(() => {
@@ -438,16 +463,43 @@ export const EventCalendarView: React.FC<EventCalendarViewProps> = ({ initialSel
                             <Users className="w-3.5 h-3.5 text-slate-400" />
                             <span>{event.goingCount || 0} Going • {event.interestedCount || 0} Interested</span>
                           </div>
-                          <a
-                            href={googleCalUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center space-x-1"
-                            title="Add to Google Calendar"
-                          >
-                            <span>Add to Cal</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
+                          <div className="flex items-center space-x-2">
+                            <a
+                              href={googleCalUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center space-x-1"
+                              title="Add to Google Calendar"
+                            >
+                              <span>Add to Cal</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+
+                            {(isAdmin || (profile && profile.uid === event.organizerId) || (user && user.uid === event.organizerId)) && (
+                              <button
+                                id={`delete-event-${event.id}`}
+                                onClick={() => handleDeleteEvent(event.id)}
+                                disabled={deletingId === event.id}
+                                className={`p-1 rounded-lg border transition-all text-[11px] font-bold flex items-center justify-center ${
+                                  confirmDeleteId === event.id
+                                    ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-600 px-2 space-x-1 animate-pulse'
+                                    : 'bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 dark:text-rose-400 border-rose-200 dark:border-rose-800/60'
+                                }`}
+                                title={isAdmin ? "Admin: Delete Event" : "Delete Event"}
+                              >
+                                {deletingId === event.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : confirmDeleteId === event.id ? (
+                                  <>
+                                    <Trash2 className="w-3 h-3 mr-0.5" />
+                                    <span>Delete?</span>
+                                  </>
+                                ) : (
+                                  <Trash2 className="w-3 h-3" />
+                                )}
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         {/* Interactive RSVP Buttons */}
