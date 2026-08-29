@@ -89,6 +89,8 @@ export const AdminDashboard: React.FC = () => {
   // User blocking state
   const [blockingUser, setBlockingUser] = useState<UserProfile | null>(null);
   const [blockReasonInput, setBlockReasonInput] = useState('');
+  const [confirmDeleteUserId, setConfirmDeleteUserId] = useState<string | null>(null);
+  const [confirmPurgeDemo, setConfirmPurgeDemo] = useState<boolean>(false);
 
   // Complaint response state
   const [respondingComplaint, setRespondingComplaint] = useState<Complaint | null>(null);
@@ -260,11 +262,21 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteUser = async (targetUser: UserProfile) => {
+    if (confirmDeleteUserId !== targetUser.uid) {
+      setConfirmDeleteUserId(targetUser.uid);
+      setTimeout(() => {
+        setConfirmDeleteUserId((prev) => (prev === targetUser.uid ? null : prev));
+      }, 4000);
+      return;
+    }
+
     try {
       await deleteDoc(doc(db, 'users', targetUser.uid));
       notify(`User ${targetUser.displayName} removed from platform`);
+      setConfirmDeleteUserId(null);
     } catch (e) {
       console.error('Failed to delete user:', e);
+      setConfirmDeleteUserId(null);
     }
   };
 
@@ -388,7 +400,14 @@ export const AdminDashboard: React.FC = () => {
 
   // --- Purge Demo Data Action ---
   const handlePurgeAllDemoData = async () => {
+    if (!confirmPurgeDemo) {
+      setConfirmPurgeDemo(true);
+      setTimeout(() => setConfirmPurgeDemo(false), 5000);
+      return;
+    }
+
     setPurging(true);
+    setConfirmPurgeDemo(false);
     const res = await purgeAllDemoData();
     setPurging(false);
     if (res.success) {
@@ -479,10 +498,14 @@ export const AdminDashboard: React.FC = () => {
               id="admin-purge-demo-data-btn"
               onClick={handlePurgeAllDemoData}
               disabled={purging}
-              className="flex items-center space-x-1.5 px-4 py-2.5 bg-rose-100/90 hover:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-900 dark:text-rose-200 border border-rose-300/70 dark:border-rose-800 rounded-2xl text-xs font-bold shadow-xs active:scale-95 transition-all disabled:opacity-50"
+              className={`flex items-center space-x-1.5 px-4 py-2.5 rounded-2xl text-xs font-bold shadow-xs active:scale-95 transition-all disabled:opacity-50 ${
+                confirmPurgeDemo
+                  ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-600 animate-pulse'
+                  : 'bg-rose-100/90 hover:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-900 dark:text-rose-200 border border-rose-300/70 dark:border-rose-800'
+              }`}
             >
-              <Trash2 className="w-4 h-4 text-rose-600" />
-              <span>{purging ? 'Purging...' : 'Purge All Demo Data'}</span>
+              <Trash2 className="w-4 h-4" />
+              <span>{purging ? 'Purging...' : confirmPurgeDemo ? '⚠️ Click again to confirm purge!' : 'Purge All Demo Data'}</span>
             </button>
           </div>
         </div>
@@ -842,11 +865,16 @@ export const AdminDashboard: React.FC = () => {
                               <Edit3 className="w-4 h-4" />
                             </button>
                             <button
+                              id={`admin-delete-user-${u.uid}`}
                               onClick={() => handleDeleteUser(u)}
                               title="Delete User"
-                              className="p-1.5 rounded-xl hover:bg-rose-100 dark:hover:bg-rose-950/60 text-rose-600 dark:text-rose-400 transition-colors"
+                              className={`p-1.5 rounded-xl transition-all ${
+                                confirmDeleteUserId === u.uid
+                                  ? 'bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] px-2 animate-pulse'
+                                  : 'hover:bg-rose-100 dark:hover:bg-rose-950/60 text-rose-600 dark:text-rose-400'
+                              }`}
                             >
-                              <Trash2 className="w-4 h-4" />
+                              {confirmDeleteUserId === u.uid ? 'Delete?' : <Trash2 className="w-4 h-4" />}
                             </button>
                           </td>
                         </tr>

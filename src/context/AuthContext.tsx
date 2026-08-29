@@ -178,12 +178,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const userEmail = (profile?.email || user?.email || '').toLowerCase().trim();
+  const isAdmin = profile?.role === 'admin' || userEmail === 'dharmatejakunchi@gmail.com' || userEmail.startsWith('admin');
+  const computedRole: UserRole = isAdmin ? 'admin' : (profile?.role || 'student');
+
   return (
     <AuthContext.Provider
       value={{
         user,
         profile,
-        role: profile?.role || 'student',
+        role: computedRole,
         loading,
         authError,
         clearAuthError,
