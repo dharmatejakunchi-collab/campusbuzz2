@@ -58,6 +58,8 @@ const DEMO_ANNOUNCEMENT_IDS = ['announcement_1', 'announcement_2', 'announcement
 const DEMO_EVENT_IDS = ['event_hackathon_1', 'event_cultural_1', 'event_career_1'];
 const DEMO_COMPLAINT_IDS = ['complaint_1', 'complaint_2', 'complaint_3'];
 
+let hasSeeded = false;
+
 /**
  * Actively purges all demo posts, complaints, announcements, and events from Firestore
  */
@@ -66,31 +68,7 @@ export async function purgeAllDemoData(): Promise<{ success: boolean; count: num
   try {
     const batch = writeBatch(db);
 
-    // Delete known demo posts
-    for (const id of DEMO_POST_IDS) {
-      batch.delete(doc(db, 'posts', id));
-      deletedCount++;
-    }
-
-    // Delete known demo announcements
-    for (const id of DEMO_ANNOUNCEMENT_IDS) {
-      batch.delete(doc(db, 'club_announcements', id));
-      deletedCount++;
-    }
-
-    // Delete known demo events
-    for (const id of DEMO_EVENT_IDS) {
-      batch.delete(doc(db, 'events', id));
-      deletedCount++;
-    }
-
-    // Delete known demo complaints
-    for (const id of DEMO_COMPLAINT_IDS) {
-      batch.delete(doc(db, 'complaints', id));
-      deletedCount++;
-    }
-
-    // Also scan collections for any docs created with 'demo_' prefix
+    // Scan collections for any docs created with 'demo_' prefix or known demo IDs
     const postsSnap = await getDocs(collection(db, 'posts'));
     postsSnap.forEach((d) => {
       if (d.id.startsWith('post_') || d.id.startsWith('demo_') || DEMO_POST_IDS.includes(d.id)) {
@@ -123,11 +101,13 @@ export async function purgeAllDemoData(): Promise<{ success: boolean; count: num
       }
     });
 
-    await batch.commit();
+    if (deletedCount > 0) {
+      await batch.commit();
+    }
     console.log(`Successfully purged ${deletedCount} demo records from database.`);
     return { success: true, count: deletedCount };
   } catch (error) {
-    console.error('Error purging demo data:', error);
+    console.warn('Notice during demo data purge:', error);
     return { success: false, count: deletedCount };
   }
 }
@@ -136,10 +116,8 @@ export async function purgeAllDemoData(): Promise<{ success: boolean; count: num
  * Ensures initial admin user exists in Firestore without populating demo posts
  */
 export async function seedDatabaseIfEmpty() {
+  if (hasSeeded) return;
   try {
-    // Purge any lingering demo documents to ensure clean database
-    await purgeAllDemoData();
-
     // Ensure initial users are saved if users collection is empty
     const usersSnap = await getDocs(collection(db, 'users'));
     if (usersSnap.empty) {
@@ -149,8 +127,9 @@ export async function seedDatabaseIfEmpty() {
       }
       await batch.commit();
     }
+    hasSeeded = true;
   } catch (error) {
-    console.error('Error verifying database state:', error);
+    console.warn('Notice during initial database verification:', error);
   }
 }
 

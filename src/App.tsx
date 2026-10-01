@@ -64,12 +64,16 @@ function MainApp() {
   const [selectedCalendarEventId, setSelectedCalendarEventId] = useState<string | undefined>(undefined);
 
   // Background worker to auto-expire posts past duration
-  useBackgroundExpiryWorker();
+  useBackgroundExpiryWorker(!!user);
 
   // Initial seed data populate if database is blank
   useEffect(() => {
-    seedDatabaseIfEmpty().catch(console.error);
-  }, []);
+    if (user) {
+      seedDatabaseIfEmpty().catch((err) => {
+        console.warn('Initial seed verification notice:', err);
+      });
+    }
+  }, [user]);
 
   // When auth state is loading
   if (loading) {

@@ -69,8 +69,10 @@ export function useCountdown(expiresAt?: number, postId?: string) {
 }
 
 // Background auto-cleanup worker that periodically checks for and deletes expired posts in Firestore
-export function useBackgroundExpiryWorker() {
+export function useBackgroundExpiryWorker(enabled: boolean = true) {
   useEffect(() => {
+    if (!enabled) return;
+
     const runWorker = async () => {
       try {
         const now = Date.now();
@@ -83,14 +85,14 @@ export function useBackgroundExpiryWorker() {
           if (data.expiresAt && data.expiresAt <= now) {
             // Auto delete expired post and room from database
             console.log(`[Expiry Worker] Auto-deleting expired post: ${postDoc.id} (${data.title})`);
-            deletePromises.push(deleteDoc(doc(db, 'posts', postDoc.id)));
+            deletePromises.push(deleteDoc(doc(db, 'posts', postDoc.id)).catch(() => {}));
             deletePromises.push(deleteDoc(doc(db, 'rooms', postDoc.id)).catch(() => {}));
           }
         });
 
         await Promise.all(deletePromises);
-      } catch (err) {
-        console.error('[Expiry Worker Error]', err);
+      } catch (err: any) {
+        console.warn('[Expiry Worker Warning]', err?.message || err);
       }
     };
 
@@ -98,6 +100,6 @@ export function useBackgroundExpiryWorker() {
     runWorker();
     const interval = setInterval(runWorker, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [enabled]);
 }
 
