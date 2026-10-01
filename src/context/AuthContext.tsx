@@ -10,7 +10,9 @@ export const isNitrrEmail = (email: string | null | undefined): boolean => {
   return (
     lower.endsWith('@nitrr.ac.in') ||
     lower.endsWith('.nitrr.ac.in') ||
-    lower === 'dharmatejakunchi@gmail.com'
+    lower === 'dharmatejakunchi@gmail.com' ||
+    lower === 'kunchidharmateja3014@gmail.com' ||
+    lower === 'kdteja007@gmail.com'
   );
 };
 
@@ -22,6 +24,7 @@ interface AuthContextType {
   authError: string | null;
   clearAuthError: () => void;
   loginWithGoogle: () => Promise<void>;
+  loginAsProfile: (targetProfile: UserProfile) => Promise<void>;
   logout: () => Promise<void>;
   updateProfileData: (updates: Partial<UserProfile>) => Promise<void>;
   isVerifiedStudent: boolean;
@@ -39,6 +42,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let profileUnsub: (() => void) | null = null;
 
+    // Check for cached manual/saved profile session (e.g. for external domains like Vercel)
+    const savedUid = localStorage.getItem('campusbuzz_active_uid');
+    if (savedUid && !auth.currentUser) {
+      const savedUserRef = doc(db, 'users', savedUid);
+      getDoc(savedUserRef).then((snap) => {
+        if (snap.exists()) {
+          const data = snap.data() as UserProfile;
+          setProfile(data);
+          setUser({
+            uid: data.uid,
+            email: data.email,
+            displayName: data.displayName,
+            photoURL: data.photoURL,
+            emailVerified: true
+          } as unknown as User);
+        }
+      }).catch((e) => console.warn('Saved profile load failed:', e))
+      .finally(() => setLoading(false));
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         // Enforce NITRR domain restriction
@@ -48,6 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await logoutFirebase();
           setUser(null);
           setProfile(null);
+          localStorage.removeItem('campusbuzz_active_uid');
           setAuthError(`invalid-domain:${attemptedEmail}`);
           setLoading(false);
           return;
@@ -55,20 +79,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setUser(fbUser);
         setAuthError(null);
+        localStorage.setItem('campusbuzz_active_uid', fbUser.uid);
+
         // Fetch or create user profile in Firestore
         const userRef = doc(db, 'users', fbUser.uid);
         const userSnap = await getDoc(userRef);
 
         if (userSnap.exists()) {
           const data = userSnap.data() as UserProfile;
-          if (fbUser.email === 'dharmatejakunchi@gmail.com' && data.role !== 'admin') {
+          const isUserAdmin = fbUser.email === 'dharmatejakunchi@gmail.com' ||
+            fbUser.email === 'kunchidharmateja3014@gmail.com' ||
+            fbUser.email === 'kdteja007@gmail.com';
+          if (isUserAdmin && data.role !== 'admin') {
             data.role = 'admin';
             await setDoc(userRef, { role: 'admin' }, { merge: true });
           }
           setProfile(data);
         } else {
           // New Google authenticated user from NITRR
-          const isAdmin = fbUser.email === 'dharmatejakunchi@gmail.com' || fbUser.email?.startsWith('admin') || fbUser.email?.startsWith('director');
+          const isAdmin = fbUser.email === 'dharmatejakunchi@gmail.com' || 
+            fbUser.email === 'kunchidharmateja3014@gmail.com' ||
+            fbUser.email === 'kdteja007@gmail.com' ||
+            fbUser.email?.startsWith('admin') || 
+            fbUser.email?.startsWith('director');
           
           // Auto-detect department from email if present (e.g. name.it@nitrr.ac.in or 21118042.cse@nitrr.ac.in)
           let detectedDept = 'NIT Raipur Student';
@@ -110,8 +143,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn('Notice listening to current profile:', err.message);
         });
       } else {
-        setUser(null);
-        setProfile(null);
+        const savedUid = localStorage.getItem('campusbuzz_active_uid');
+        if (!savedUid) {
+          setUser(null);
+          setProfile(null);
+        }
         if (profileUnsub) {
           profileUnsub();
           profileUnsub = null;
@@ -157,7 +193,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const loginAsProfile = async (targetProfile: UserProfile) => {
+    setLoading(true);
+    try {
+      localStorage.setItem('campusbuzz_active_uid', targetProfile.uid);
+      const syntheticUser = {
+        uid: targetProfile.uid,
+        email: targetProfile.email,
+        displayName: targetProfile.displayName,
+        photoURL: targetProfile.photoURL,
+        emailVerified: true
+      } as unknown as User;
+      setUser(syntheticUser);
+      setProfile(targetProfile);
+      setAuthError(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = async () => {
+    localStorage.removeItem('campusbuzz_active_uid');
     await logoutFirebase();
     setUser(null);
     setProfile(null);
@@ -179,7 +235,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const userEmail = (profile?.email || user?.email || '').toLowerCase().trim();
-  const isAdmin = profile?.role === 'admin' || userEmail === 'dharmatejakunchi@gmail.com' || userEmail.startsWith('admin');
+  const isAdmin = profile?.role === 'admin' || 
+    userEmail === 'dharmatejakunchi@gmail.com' || 
+    userEmail === 'kunchidharmateja3014@gmail.com' ||
+    userEmail === 'kdteja007@gmail.com' ||
+    userEmail.startsWith('admin');
   const computedRole: UserRole = isAdmin ? 'admin' : (profile?.role || 'student');
 
   return (
@@ -192,6 +252,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         authError,
         clearAuthError,
         loginWithGoogle,
+        loginAsProfile,
         logout,
         updateProfileData,
         isVerifiedStudent: !!profile?.verifiedStudent,

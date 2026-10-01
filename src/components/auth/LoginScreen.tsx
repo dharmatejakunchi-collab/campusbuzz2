@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
 export const LoginScreen: React.FC = () => {
-  const { loginWithGoogle, loading, authError } = useAuth();
+  const { loginWithGoogle, loginAsProfile, loading, authError } = useAuth();
   const { currentTheme } = useTheme();
 
   return (
@@ -159,6 +159,90 @@ export const LoginScreen: React.FC = () => {
             <div className="flex items-center justify-center space-x-2 text-xs text-slate-500 text-center">
               <CheckCircle2 className="w-3.5 h-3.5 text-purple-600 shrink-0" />
               <span>Select your official <strong className="text-slate-700">@nitrr.ac.in</strong> email during Google sign-in</span>
+            </div>
+
+            {/* Quick Access for Registered Accounts */}
+            <div className="pt-3 border-t border-purple-100">
+              <div className="text-center mb-2.5">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Quick Access With Registered Profile
+                </span>
+              </div>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => loginAsProfile({
+                    uid: 'NNIBQj7wsug20EkXTkNL6G5yFTd2',
+                    displayName: 'kunchi dharmateja',
+                    email: 'dharmatejakunchi@gmail.com',
+                    role: 'admin',
+                    studentId: 'STU-9047',
+                    hostel: 'Hostel Block C, Room 204',
+                    department: 'NITRR Administration',
+                    verifiedStudent: true,
+                    phone: '+1 (555) 019-2834',
+                    whatsapp: '+15550192834',
+                    bio: 'Campus Administrator & Moderator • NIT Raipur',
+                    isBlocked: false,
+                    createdAt: Date.now()
+                  })}
+                  className="w-full flex items-center justify-between p-3 rounded-2xl bg-purple-50/70 hover:bg-purple-100/80 border border-purple-200/80 text-left transition-all group cursor-pointer"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs shadow-xs">
+                      D
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-800 text-xs flex items-center space-x-1.5">
+                        <span>kunchi dharmateja</span>
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-100 text-rose-700">Campus Admin</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-mono">dharmatejakunchi@gmail.com</div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-purple-700 group-hover:translate-x-0.5 transition-transform flex items-center space-x-1">
+                    <span>Enter</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => loginAsProfile({
+                    uid: 'AJpPD7KGsMen1BKl1fBTrMxW82t1',
+                    displayName: 'kunchi teja',
+                    email: 'kdteja057.btech2025@cse.nitrr.ac.in',
+                    role: 'student',
+                    studentId: 'STU-6547',
+                    hostel: 'Hostel Block B, Room 102',
+                    department: 'Department of CSE',
+                    verifiedStudent: true,
+                    phone: '+1 (555) 019-2834',
+                    whatsapp: '+15550192834',
+                    bio: 'NIT Raipur Student • Ready to connect & collaborate!',
+                    isBlocked: false,
+                    createdAt: Date.now()
+                  })}
+                  className="w-full flex items-center justify-between p-3 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-left transition-all group cursor-pointer"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-xs">
+                      T
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-800 text-xs flex items-center space-x-1.5">
+                        <span>kunchi teja</span>
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-700">Student</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-mono">kdteja057.btech2025@cse.nitrr.ac.in</div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-slate-600 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all flex items-center space-x-1">
+                    <span>Enter</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </motion.div>
